@@ -1,38 +1,40 @@
-import { Connection, Request } from "tedious";
+import sql from "mssql";
 import dotenv from "dotenv";
 
 dotenv.config();
 
-console.log("SQL Server:", process.env.SQLSERVER_SERVER);
+console.log("SQL Server:", process.env.SQLSERVER_HOST);
 console.log("Database:", process.env.SQLSERVER_DATABASE);
 console.log("User:", process.env.SQLSERVER_USER);
 console.log("Password:", process.env.SQLSERVER_PASSWORD);
 
-// Explicitly define type to ensure compatibility
-const sqlServerConfig = {
-  server: process.env.SQLSERVER_SERVER || "localhost", // ✅ Ensure it's just "localhost"
-  authentication: {
-    type: "default",
-    options: {
-      userName: process.env.SQLSERVER_USER || "sa",
-      password: process.env.SQLSERVER_PASSWORD || "yourpassword",
-    },
-  },
+// SQL Server Connection Configuration
+const sqlConfig = {
+  user: process.env.SQLSERVER_USER,
+  password: process.env.SQLSERVER_PASSWORD,
+  server: process.env.SQLSERVER_HOST,
+  database: process.env.SQLSERVER_DATABASE,
+  port: parseInt(process.env.SQLSERVER_PORT, 10), // Ensure it's a number
   options: {
-    encrypt: false, // 🔹 Set to `false` for local SQL Server
-    database: process.env.SQLSERVER_DATABASE || "yourdatabase",
-    port: 1433, // ✅ Define port explicitly
-    trustServerCertificate: true,
+    encrypt: false, // Set to true for Azure
+    trustServerCertificate: true, // Required for local development
   },
 };
 
-// Create the connection
-export const sqlServerConnection = new Connection(sqlServerConfig);
+// Global connection pool
+let poolPromise;
 
-sqlServerConnection.on("connect", (err) => {
-  if (err) console.log("SQL SERVER connection failed:", err);
-  else console.log("Connected to SQL Server");
-});
+async function connectSqlServer() {
+  try {
+    if (!poolPromise) {
+      poolPromise = await sql.connect(sqlConfig);
+      console.log("✅ Connected to SQL Server");
+    }
+    return poolPromise;
+  } catch (err) {
+    console.error("❌ SQL Server Connection Error:", err);
+    throw err;
+  }
+}
 
-// Ensure connection is initiated
-sqlServerConnection.connect();
+export default connectSqlServer;
